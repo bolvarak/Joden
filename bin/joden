@@ -1,0 +1,40 @@
+#!/bin/bash
+# Set the path to Joden
+sJodenHome="/opt/joden"
+# Grab the process id
+PID=$(tail -n 1 ../logs/pid.log)
+# Determine the action we
+# need to perform
+case "$1" in
+	# Start the server
+	'start')
+		# Give the user a status
+		echo -e "\nStarting Joden Server ..."
+		# Try to start Joden
+		perl $sJodenHome/bin/joden-server > /dev/null 2>&1
+		# Tell the user it was successful
+		echo -e "Done!\n"
+	;;
+	# Stop the server
+	'stop')
+		# Give the user a status
+		echo -e "\nStopping Joden Server ..."
+		# Destroy the server
+		kill $PID > /dev/null 2>&1
+		# Tell the user it was successful
+		echo -e "Done!\n"
+	;;
+	# Restart the server
+	'restart')
+		# Give the user a status
+		echo -e "\nRestarting Joden Server ..."
+		# Destroy the server
+		kill $PID > /dev/null 2>&1
+		# Try to start the server
+		perl $sJodenHome/bin/joden-server > /dev/null 2>&1
+		# Tell the user it was successful
+		echo -e "Done!\n"
+	;;
+esac
+# Terminate
+exit

@@ -1,0 +1,17 @@
+{
+	"root": {
+		"aDatabases": ["all"], 
+		"sPassword": "Fj8*Qm1597tmb", 
+		"oPermissions": {
+			"all": ["all"]
+		}
+	}, 
+	
+	"demo": {
+		"aDatabases": ["test_database"], 
+		"sPassword": "changeMe123", 
+		"oPermissions": {
+			"test_database": ["all"]
+		}
+	}
+}

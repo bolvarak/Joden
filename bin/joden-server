@@ -1,0 +1,207 @@
+#!/usr/bin/perl -w
+# We like strict syntac
+use strict;
+# We need POSIX to create processes
+use POSIX	qw(setsid);
+# We need Socket to create socket connections
+use Socket	qw(:DEFAULT :crlf);
+# We need IO::Socket to read from the sockets
+use IO::Socket;
+# Set our lib directory
+use lib('../lib');
+# We need our framework
+use Joden;
+# We need JSON for the data transfer
+use JSON;
+# We need DateTime for the logs
+use DateTime;
+# This suprocess forks the server
+# to the background to run it as a 
+# service
+sub daemonize {
+	# Set STDIN
+	open(STDIN,  '/dev/null') or die("Unable to read input: $!");
+	# Set STDOUT to our access log
+	open(STDOUT, '>>../logs/access.log') or die("Unable to write logs: $!");
+	# Set STDERR to our error log
+	open(STDERR, '>>../logs/error.log') or die("Unable to write logs: $!");
+	# Try to create a new process id
+	my($iProcessId) = fork or die("Unable to fork: $!");
+	# Terminate if there is a process id
+	exit if($iProcessId);
+	# Set the new process id
+	setsid or die("Unable to create session: $!");
+	# Log the current process ID
+	&logProcessId($iProcessId) or die("Unable to log PID: $!");
+}
+# This subprocess logs the current
+# process id to our PID log file
+sub logProcessId {
+	# Grab the process id
+	my($iProcessId) = shift;
+	# Open the log file for writing
+	open(PID, '>>../logs/pid.log');
+	# Append the process if
+	print(PID "$iProcessId\n");
+	# Close the log file
+	close(PID);
+}
+# This subprocess logs the request
+# and client data objects into the 
+# activity log file
+sub logRequest {
+	# Grab the log data
+	my(%oRequest, %oData) = @_;
+	# Open the log file for writing
+	open(LOG, '>>../logs/activity.log');
+	# Get the current date and time
+	my($oTimestamp) = DateTime->now(
+		time_zone => 'America/New_York'
+	);
+	# Write the request start	
+	print(LOG "REQUEST [".$oTimestamp->mdy." ".$oTimestamp->hms."]\n");
+	# Loop through the request keys		
+	while (my($sKey, $mValue) = each(%oRequest)) {
+		# Write the data to the log
+		print(LOG "[$sKey] => $mValue\n");
+	}
+	# Write the data start
+	print(LOG "\nDATA [".$_dt->mdy." ".$_dt->hms."]\n");
+	# Loop through the data keys	
+	while (my($sKey, $mValue) = each(%oData)) {
+		# Write the data to the log
+		print(LOG "[$_k => $_v]\n");
+	}
+	# Finish out the log	
+	print(LOG "\n\n");
+	# Close the log file
+	close(LOG);
+}
+# Convert the server to a daemon
+&daemonize;
+# Execute while the server is running
+while (1) {
+	# This is the IP we will bind to
+	my($sIpAddress)   = '127.0.0.1';
+	# This is the port number we will bind to
+	my($iPortNumber)  = 1988;
+	# This is our storage directory
+	my($sStorageRoot) = '../data';
+	# Grab an instance of Joden
+	my($oJoden)       = Joden->new;
+	# Grab a new instance of JSON
+	my($oJson)        = JSON->new;
+	# Create our server
+	my($oServer)      = new IO::Socket::INET(
+		Proto     => 'tcp', 
+		LocalAddr => $sIpAddress, 
+		LocalPort => $iPortNumber, 
+		Listen    => SOMAXCONN, 
+		Reuse     => 1
+	);
+	# Read the data
+	while (my($oClient) = $oServer->accept) {
+		# Flush the connections automatically
+		$oClient->autoflush(1);
+		# Our request data placeholder
+		my(%oRequest) = ();
+		# Our data placeholder
+		my(%oData);
+		# Execute the procedure
+		{
+			# This is our new line operator
+			local $/ = Socket::CRLF;
+			# Execute while we have client data
+			while (<$oClient>) {
+				# Trim the client data
+				chomp;
+				# Grab the request data
+				if (/\s*(\w+)\s*([^\s]+)\s*HTTP\/(\d.\d)/) {
+					# Set the request method
+					$oRequest{METHOD}       = uc($1);
+					# Set the request uri
+					$oRequest{URL}          = $2;
+					# Set the protocol version
+					$oRequest{HTTP_VERSION} = $3;
+				} elsif (/:/) {
+					# Grab the POST data
+					my($sType, $mVal) = split(/:/, $_, 2);
+					# Remove any spaces
+					$sType            =~ s/^\s+//;
+					# Loop through the POST data
+					foreach($sType, $mVal) {
+						# Remove any preceeding spaces
+						s/^\s+//;
+						# Remove any trailing spaces
+						s/\s+$//;
+					}
+					# Set the POST data key and value
+					$oRequest{$sType} = $mVal;
+				} elsif (/^$/) {
+					# Grab the unkown content
+					read($oClient, $oRequest{CONTENT}, $oRequest{'content-length'})
+						if (defined($oRequest{'content-length'}));
+					last;
+				}
+			}
+		}
+		# Parse the request data
+		if ($oRequest{METHOD} eq 'GET') {
+			# Check for a query string
+			if ($oRequest{URL} =~ /(.*)\?(.*)/) {
+				# Set the URI
+				$oRequest{URL}     = $1;
+				# Set the content
+				$oRequest{CONTENT} = $2;
+			} else {
+				# Reset the data placeholder
+				%oData = ();
+			}
+			# Set the method
+			$oData{sRequestMethod} = "GET";
+		} elsif ($oRequest{METHOD} eq 'POST') {
+			# Set the request method
+			$oData{sRequestMethod} = "POST";
+		} else {
+			# Set the request method
+			$oData{sRequestMethod} = "ERROR";
+		}
+		# Send a response to the client
+		if ($oRequest{METHOD} eq 'GET') {
+			# Send HTTP headers
+			print($oClient "HTTP/1.0 200 OK", $CRLF);
+			# Send Content-Type headers
+			print($oClient "Content-type: application/json", $CRLF);
+			# Send the client's request data
+			print($oClient $CRLF);
+			# Send Joden's response
+			print($oClient $oJoden->parse($_request{CONTENT}));
+			# Set the response code
+			$oData{iStatusCode} = 200;
+		} elsif ($oRequest{METHOD} eq 'POST') {
+			# Set the HTTP headers
+			print($oClient "HTTP/1.0 200 OK", $CRLF);
+			# Set the Content-Type headers
+			print($oClient "Content-type:  application/json", $CRLF);
+			# Send the client's request data
+			print($oClient $CRLF);
+			# Send Joden's response
+			print($oClient $oJoden->parse($_request{CONTENT}));
+			# Set the response code
+			$oData{iStatusCode} = 200;
+		} else {
+			# Send the HTTP headers
+			print($oClient "HTTP/1.0 200 OK", $CRLF);
+			# Send the Content-Type headers
+			print($oClient "Content-type:  application/json", $CRLF);
+			# Send the client's request data
+			print($oClient $CRLF);
+			# Send the response
+			print($oClient '{"error":"No data.  Nothing to do."}');
+			# Set the response code
+			$oData{iStatusCode} = 200;
+		}
+		# Log this activity
+		&logRequest(\%oRequest, \%oData);
+	}
+}

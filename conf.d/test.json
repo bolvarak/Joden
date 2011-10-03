@@ -1,0 +1,77 @@
+{
+	"sName"   : "test", 
+	"sComment": "Some comment to describe the table here.", 
+		"oTables" : {
+			"Users": {
+				"sComment"         : "Example Table 1", 
+				"iAutoIncrement": 3, 
+				"oFields"          : {
+					"iUserId": {
+						"sComment": "Primary ID", 
+						"sType": "integer", 
+						"iDecimals": null, 
+						"iLength": 255, 
+						"mDefault": "not_null", 
+						"bAllowNull": false, 
+						"bAutoIncrement": true, 
+						"aFunctions": []
+					}, 
+					
+					"sUsername": {
+						"sComment": "User's Username", 
+						"sType": "string", 
+						"iLength": 50, 
+						"mDefault": null, 
+						"bAllowNull": true, 
+						"bAutoIncrement": false, 
+						"aFunctions": []
+					}, 
+					
+					"sPassword": {
+						"sComment": "User's Password", 
+						"sType": "string", 
+						"iLength": 50, 
+						"mDefault": null, 
+						"bAllowNull": true, 
+						"bAutoIncrement": false, 
+						"aFunctions": ["encrypt"]
+					}, 
+					
+					"sFirstName": {
+						"sComment": "User's First Name", 
+						"sType": "string", 
+						"iLength": 75, 
+						"mDefault": null, 
+						"bAllowNull": true, 
+						"bAutoIncrement": false, 
+						"aFunctions": []
+					}, 
+					
+					"sLastName": {
+						"sComment": "User's Last Name", 
+						"sType": "string", 
+						"iLength": 75, 
+						"mDefault": null, 
+						"bAllowNull": true, 
+						"bAutoIncrement": false, 
+						"aFunctions": []
+					}, 
+					
+					"sEmailAddress": {
+						"sComment": "User's Email Address", 
+						"sType": "string", 
+						"iLength": 250, 
+						"mDefault": null, 
+						"bAllowNull": true, 
+						"bAutoIncrement": false, 
+						"aFunctions": []
+					}
+				}, 
+				"records": [
+					[1, "travis", "travis", "Travis", "Brown", "travis@test.net"], 
+					[2, "louis", "louis", "Louis", "Stowasser", "louis@test.net"], 
+					[3, "greg", "greg", "Gregory", "Milby", "greg@test.net"]
+				]
+		}
+	}
+}
